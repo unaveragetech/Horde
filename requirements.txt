@@ -1,0 +1,15 @@
+# Database ORM and SQLite support
+SQLAlchemy>=2.0.0
+
+# HTTP requests for downloading files
+requests>=2.28.0
+
+# Progress bar for live download display
+tqdm>=4.65.0
+
+# Web scraping for MTGJSON link aggregation
+beautifulsoup4>=4.12.0
+
+# Image processing for card name detection
+opencv-python>=4.5.0
+pytesseract>=0.3.8
