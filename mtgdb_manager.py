@@ -1215,6 +1215,421 @@ def db_list_entries(session, limit=50):
     print("-" * 40)
 
 # ---------------------
+# Deck Builder Functions
+# ---------------------
+def generate_deck_from_prompt(session, prompt, model="llama2"):
+    """
+    Use Ollama to generate a deck based on a theme/prompt
+    Args:
+        session: SQLAlchemy session
+        prompt: str - Description of desired deck
+        model: str - Ollama model to use
+    Returns:
+        dict: Deck information and card list
+    """
+    import requests
+
+    # Enhance the prompt with specific deck building instructions
+    enhanced_prompt = f"""
+    Create a Magic: The Gathering deck based on this theme: {prompt}
+    
+    Requirements:
+    - 60 cards total for main deck
+    - Follow standard Magic format rules
+    - Include card quantities
+    - Group by card type (Creatures, Spells, Lands)
+    - Explain key synergies and strategy
+    """
+
+    # Call Ollama API
+    response = requests.post('http://localhost:11434/api/generate', 
+        json={
+            "model": model,
+            "prompt": enhanced_prompt,
+            "stream": False
+        }
+    )
+    
+    if response.status_code != 200:
+        raise Exception("Failed to generate deck with Ollama")
+
+    # Parse Ollama's response
+    deck_suggestion = response.json()['response']
+    
+    # Extract card names and quantities
+    deck_list = parse_deck_suggestion(deck_suggestion)
+    
+    # Verify cards exist in database
+    verified_deck = verify_cards(session, deck_list)
+    
+    return {
+        'theme': prompt,
+        'strategy': deck_suggestion,
+        'deck_list': verified_deck
+    }
+
+def parse_deck_suggestion(suggestion):
+    """Parse the AI's deck suggestion into a structured format"""
+    import re
+    
+    deck_list = {
+        'creatures': [],
+        'spells': [],
+        'lands': []
+    }
+    
+    # Regular expression to match card quantities and names
+    pattern = r'(\d+)x?\s+\[\[(.*?)\]\]'
+    
+    current_section = 'spells'  # default section
+    
+    for line in suggestion.split('\n'):
+        line = line.strip()
+        
+        # Determine section
+        if 'creature' in line.lower():
+            current_section = 'creatures'
+            continue
+        elif 'land' in line.lower():
+            current_section = 'lands'
+            continue
+        elif any(x in line.lower() for x in ['instant', 'sorcery', 'enchantment', 'artifact']):
+            current_section = 'spells'
+            continue
+            
+        # Extract card information
+        matches = re.findall(pattern, line)
+        for match in matches:
+            quantity, card_name = int(match[0]), match[1]
+            deck_list[current_section].append({
+                'quantity': quantity,
+                'name': card_name
+            })
+    
+    return deck_list
+
+def verify_cards(session, deck_list):
+    """Verify all cards exist in database and get their details"""
+    verified_deck = {
+        'creatures': [],
+        'spells': [],
+        'lands': [],
+        'missing': []
+    }
+    
+    for category in ['creatures', 'spells', 'lands']:
+        for card in deck_list[category]:
+            db_card = session.query(Card).filter(Card.name == card['name']).first()
+            if db_card:
+                verified_deck[category].append({
+                    'quantity': card['quantity'],
+                    'name': card['name'],
+                    'type': db_card.type,
+                    'rarity': db_card.rarity,
+                    'set': db_card.set_code
+                })
+            else:
+                verified_deck['missing'].append(card['name'])
+    
+    return verified_deck
+
+def display_deck(deck_info):
+    """Display the generated deck in a formatted way"""
+    print("\n=== Generated Deck ===")
+    print(f"Theme: {deck_info['theme']}")
+    print("\nStrategy:")
+    print(deck_info['strategy'])
+    
+    print("\nDeck List:")
+    for category in ['creatures', 'spells', 'lands']:
+        print(f"\n{category.title()}:")
+        for card in deck_info['deck_list'][category]:
+            print(f"{card['quantity']}x {card['name']} ({card['set']} - {card['rarity']})")
+    
+    if deck_info['deck_list']['missing']:
+        print("\nWarning: Missing cards:")
+        for card in deck_info['deck_list']['missing']:
+            print(f"- {card}")
+
+def save_deck(deck_info, filename):
+    """Save deck to a file"""
+    import json
+    with open(filename, 'w') as f:
+        json.dump(deck_info, f, indent=2)
+    print(f"\nDeck saved to {filename}")
+
+def show_deck_builder_popup(session):
+    """Display a popup window for the deck builder interface"""
+    if tk is None:
+        print("Tkinter is not available on this system.")
+        return
+
+    # Create popup window
+    builder_window = tk.Toplevel()
+    builder_window.title("MTG Deck Builder")
+    builder_window.geometry("600x800")
+    
+    # Add button frame for tools
+    tools_frame = ttk.Frame(builder_window, padding="10")
+    tools_frame.pack(fill=tk.X, padx=10, pady=5)
+    
+    def show_card_grid(session, parent, initial_search="", on_select_callback=None):
+        """
+        Display a grid of cards with search functionality
+        Args:
+            session: SQLAlchemy session
+            parent: Parent tkinter widget
+            initial_search: Initial search term
+            on_select_callback: Function to call when a card is selected
+        """
+        import tkinter as tk
+        from tkinter import ttk
+        
+        # Search frame
+        search_frame = ttk.Frame(parent)
+        search_frame.pack(fill=tk.X, pady=5)
+        
+        search_var = tk.StringVar(value=initial_search)
+        search_entry = ttk.Entry(search_frame, textvariable=search_var)
+        search_entry.pack(fill=tk.X)
+        
+        # Create Treeview
+        tree = ttk.Treeview(
+            parent,
+            columns=("Name", "Type", "Rarity", "Set"),
+            show="headings",
+            height=15
+        )
+        
+        # Configure columns
+        for col in ("Name", "Type", "Rarity", "Set"):
+            tree.heading(col, text=col)
+            tree.column(col, width=150 if col in ("Name", "Type") else 100)
+        
+        # Add scrollbar
+        scrollbar = ttk.Scrollbar(parent, orient=tk.VERTICAL, command=tree.yview)
+        tree.configure(yscrollcommand=scrollbar.set)
+        
+        # Grid layout
+        tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        def update_grid(event=None):
+            """Update grid with search results"""
+            search_term = search_var.get().strip()
+            tree.delete(*tree.get_children())
+            
+            cards = session.query(Card).filter(
+                Card.name.ilike(f"%{search_term}%")
+            ).order_by(Card.name).all()
+            
+            for card in cards:
+                tree.insert("", tk.END, values=(
+                    card.name,
+                    card.type,
+                    card.rarity,
+                    card.set_code
+                ))
+        
+        def on_select(event):
+            """Handle card selection"""
+            if on_select_callback:
+                selection = tree.selection()
+                if selection:
+                    card_name = tree.item(selection[0])["values"][0]
+                    on_select_callback(card_name)
+        
+        # Bind events
+        search_entry.bind('<Return>', update_grid)
+        search_var.trace_add("write", lambda *args: update_grid())
+        tree.bind('<<TreeviewSelect>>', on_select)
+        
+        # Initial population
+        update_grid()
+    
+    def open_card_search():
+        """Opens the card viewer in a new window"""
+        # Get the currently selected text in prompt_text if any
+        try:
+            selected_text = prompt_text.get("sel.first", "sel.last")
+        except tk.TclError:
+            selected_text = ""  # No selection
+        
+        # Create a new window for the card viewer
+        search_window = tk.Toplevel(builder_window)
+        search_window.title("Card Search")
+        
+        # Create main frame for the card viewer
+        main_frame = ttk.Frame(search_window, padding="10")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        def on_card_selected(card_name):
+            """Callback when a card is selected in the viewer"""
+            # Insert the card name at the current cursor position in prompt_text
+            prompt_text.insert(tk.INSERT, f"[[{card_name}]] ")
+            search_window.focus_set()  # Keep focus on search window
+        
+        # Initialize the card viewer with the selected text as initial search
+        show_card_grid(
+            session=session,
+            parent=main_frame,
+            initial_search=selected_text,
+            on_select_callback=on_card_selected
+        )
+    
+    # Add Search Cards button to tools frame
+    search_button = ttk.Button(
+        tools_frame,
+        text="Search Cards",
+        command=open_card_search,
+        style="Tool.TButton"
+    )
+    search_button.pack(side=tk.LEFT, padx=5)
+    
+    # Style configuration
+    style = ttk.Style()
+    style.configure("Generate.TButton", 
+        padding=10, 
+        font=('Arial', 12, 'bold')
+    )
+    style.configure("Tool.TButton",
+        padding=5,
+        font=('Arial', 10)
+    )
+    
+    # Create frames
+    input_frame = ttk.Frame(builder_window, padding="10")
+    input_frame.pack(fill=tk.X, padx=10, pady=5)
+    
+    output_frame = ttk.Frame(builder_window, padding="10")
+    output_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+    
+    # Prompt input
+    ttk.Label(input_frame, text="Deck Theme:", font=('Arial', 12)).pack(anchor=tk.W)
+    prompt_text = tk.Text(input_frame, height=4, width=50, font=('Arial', 11))
+    prompt_text.pack(fill=tk.X, pady=5)
+    
+    # Model selection
+    model_frame = ttk.Frame(input_frame)
+    model_frame.pack(fill=tk.X, pady=5)
+    ttk.Label(model_frame, text="Model:", font=('Arial', 12)).pack(side=tk.LEFT)
+    model_var = tk.StringVar(value="llama2")
+    model_combo = ttk.Combobox(model_frame, 
+        textvariable=model_var,
+        values=["llama2", "codellama", "mistral"],
+        state="readonly",
+        width=20
+    )
+    model_combo.pack(side=tk.LEFT, padx=5)
+    
+    # Output area
+    output_text = tk.Text(output_frame, height=20, width=60, font=('Arial', 11))
+    output_text.pack(fill=tk.BOTH, expand=True)
+    
+    # Progress bar
+    progress_var = tk.StringVar(value="Ready")
+    progress_label = ttk.Label(output_frame, textvariable=progress_var)
+    progress_label.pack(pady=5)
+    
+    # Save button (initially disabled)
+    save_button = ttk.Button(output_frame, text="Save Deck", state=tk.DISABLED)
+    save_button.pack(pady=5)
+    
+    def update_output(message):
+        output_text.insert(tk.END, message + "\n")
+        output_text.see(tk.END)
+        output_text.update()
+    
+    def save_generated_deck():
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".json",
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+            title="Save Deck As"
+        )
+        if file_path and hasattr(builder_window, 'deck_info'):
+            save_deck(builder_window.deck_info, file_path)
+            update_output(f"\nDeck saved to {file_path}")
+    
+    def generate_deck():
+        prompt = prompt_text.get("1.0", tk.END).strip()
+        if not prompt:
+            messagebox.showerror("Error", "Please enter a deck theme")
+            return
+        
+        # Disable inputs during generation
+        prompt_text.configure(state=tk.DISABLED)
+        model_combo.configure(state=tk.DISABLED)
+        generate_button.configure(state=tk.DISABLED)
+        output_text.delete("1.0", tk.END)
+        save_button.configure(state=tk.DISABLED)
+        
+        def run_generation():
+            try:
+                progress_var.set("Generating deck...")
+                deck_info = generate_deck_from_prompt(session, prompt, model_var.get())
+                
+                # Store deck info for saving
+                builder_window.deck_info = deck_info
+                
+                # Display results
+                update_output(f"=== Generated Deck ===\nTheme: {deck_info['theme']}\n")
+                update_output("\nStrategy:")
+                update_output(deck_info['strategy'])
+                
+                update_output("\nDeck List:")
+                for category in ['creatures', 'spells', 'lands']:
+                    update_output(f"\n{category.title()}:")
+                    for card in deck_info['deck_list'][category]:
+                        update_output(
+                            f"{card['quantity']}x {card['name']} "
+                            f"({card['set']} - {card['rarity']})"
+                        )
+                
+                if deck_info['deck_list']['missing']:
+                    update_output("\nWarning: Missing cards:")
+                    for card in deck_info['deck_list']['missing']:
+                        update_output(f"- {card}")
+                
+                # Enable save button
+                save_button.configure(state=tk.NORMAL)
+                progress_var.set("Deck generation complete")
+                
+            except Exception as e:
+                update_output(f"\nError generating deck: {e}")
+                progress_var.set("Generation failed")
+            
+            finally:
+                # Re-enable inputs
+                prompt_text.configure(state=tk.NORMAL)
+                model_combo.configure(state="readonly")
+                generate_button.configure(state=tk.NORMAL)
+        
+        # Run generation in separate thread
+        threading.Thread(target=run_generation, daemon=True).start()
+    
+    # Generate button
+    generate_button = ttk.Button(
+        input_frame,
+        text="Generate Deck",
+        command=generate_deck,
+        style="Generate.TButton"
+    )
+    generate_button.pack(pady=10)
+    
+    # Configure save button
+    save_button.configure(command=save_generated_deck)
+    
+    # Center window
+    builder_window.update_idletasks()
+    width = builder_window.winfo_width()
+    height = builder_window.winfo_height()
+    x = (builder_window.winfo_screenwidth() // 2) - (width // 2)
+    y = (builder_window.winfo_screenheight() // 2) - (height // 2)
+    builder_window.geometry(f'{width}x{height}+{x}+{y}')
+    
+    builder_window.mainloop()
+
+# ---------------------
 # Main CLI and Subcommand Handling
 # ---------------------
 def get_free_port():
@@ -1328,6 +1743,20 @@ def download_selected(db_path=None):
     finally:
         session.close()
 
+def add_deckbuilder_subcommand(subparsers):
+    """Add the deckbuilder subcommand to the argument parser"""
+    deck_parser = subparsers.add_parser("build-deck", 
+        help="Generate a deck based on a theme using AI")
+    deck_parser.add_argument('--gui', action='store_true',
+        help="Launch graphical deck builder interface")
+    deck_parser.add_argument('--prompt', type=str,
+        help="Description of the desired deck theme")
+    deck_parser.add_argument('--model', type=str, default="llama2",
+        help="Ollama model to use (default: llama2)")
+    deck_parser.add_argument('--save', type=str,
+        help="Save deck to specified file")
+    return deck_parser
+
 def main():
     parser = argparse.ArgumentParser(
         description="MTGJSON Database Manager, Downloader, and Card Viewer"
@@ -1335,7 +1764,7 @@ def main():
     parser.add_argument('--db', type=str, default="mtg_cards.db", help="Path to the SQLite DB file")
     subparsers = parser.add_subparsers(dest="command", help="Subcommands", required=True)
     
-    # Update the select-download subcommand description
+    # Add subcommands
     select_download_parser = subparsers.add_parser("select-download", 
         help="Select and process a local MTGJSON ZIP file")
     select_download_parser.add_argument('--new-db', type=str, 
@@ -1367,6 +1796,9 @@ def main():
     # DB Manager subcommand.
     db_parser = subparsers.add_parser("db-manager", help="Database management utilities")
     db_parser.add_argument("action", choices=["stats", "list", "init"], help="Action: 'stats' to view DB stats, 'list' to list card entries, 'init' to reinitialize the DB")
+
+    # Add deck builder subcommand
+    deck_parser = add_deckbuilder_subcommand(subparsers)
 
     args = parser.parse_args()
 
@@ -1434,6 +1866,18 @@ def main():
             print(f"Stored {len(links)} links")
         elif args.link_action == "list":
             list_stored_links(link_session)
+
+    elif args.command == "build-deck":
+        if args.gui:
+            show_deck_builder_popup(session)
+        else:
+            try:
+                deck_info = generate_deck_from_prompt(session, args.prompt, args.model)
+                display_deck(deck_info)
+                if args.save:
+                    save_deck(deck_info, args.save)
+            except Exception as e:
+                print(f"Error generating deck: {e}")
 
 if __name__ == "__main__":
     main()

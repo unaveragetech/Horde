@@ -7,6 +7,7 @@
 4. [Popup Command](#popup)
 5. [Database Manager Command](#database-manager)
 6. [Link Manager Command](#link-manager)
+7. [Deck Builder Command](#deck-builder)
 
 ## Global Options
 Options available for all commands:
@@ -181,6 +182,34 @@ python mtgdb_manager.py manage-links fetch
 python mtgdb_manager.py manage-links list
 ```
 
+## Deck Builder
+AI-powered deck generation based on themes.
+
+### Syntax
+```bash
+python mtgdb_manager.py build-deck [options]
+```
+
+### Options
+```bash
+--gui              # Launch graphical deck builder interface
+--prompt <text>    # Description of desired deck theme (CLI mode)
+--model <name>     # Ollama model to use (default: llama2)
+--save <filename>  # Save deck to file (optional)
+```
+
+### Examples
+```bash
+# Launch graphical deck builder
+python mtgdb_manager.py build-deck --gui
+
+# Generate deck via command line
+python mtgdb_manager.py build-deck --prompt "Aggressive dragon tribal deck"
+
+# Generate and save deck using specific model
+python mtgdb_manager.py build-deck --prompt "Blue control deck" --model codellama --save control_deck.json
+```
+
 ## Common Workflows
 
 ### Initial Setup
@@ -247,3 +276,4 @@ Error: Invalid search field 'invalid_field'
    - Use custom database paths for different sets
    - Create aliases for common commands
    - Set up automated update scripts
+
