@@ -13,3 +13,23 @@ beautifulsoup4>=4.12.0
 # Image processing for card name detection
 opencv-python>=4.5.0
 pytesseract>=0.3.8
+requests
+bs4
+random
+tkinter
+socket
+subprocess
+http
+threading
+re
+pipin
+sqlalchemy
+webbrowser
+pkgutil
+argparse
+json
+shutil
+tqdm
+os
+zipfile
+datetime

@@ -23,6 +23,10 @@ Usage Examples:
     # Manage MTGJSON download links:
     python mtgdb_manager.py manage-links fetch
 """
+
+from pipin import install_requirements
+install_requirements(dev_mode=True, dev_runs=50)  # Check dependencies every 50 runs
+    
 import os
 import datetime
 import re
