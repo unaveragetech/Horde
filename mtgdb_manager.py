@@ -25,7 +25,9 @@ Usage Examples:
 """
 import os
 import datetime
+import re
 import sys
+import subprocess
 import json
 import random
 from tkinter import filedialog
@@ -44,6 +46,39 @@ import socket
 import time  # Add this import if not already present
 
 # For the popup viewer.
+def get_ollama_models():
+    """
+    Get list of available Ollama models
+    Returns:
+        list: Available model names or default list if Ollama is not accessible
+    """
+    try:
+        result = subprocess.run(['ollama', 'list'], capture_output=True, text=True)
+        if result.returncode == 0:
+            # Parse output to extract model names
+            models = []
+            for line in result.stdout.splitlines()[1:]:  # Skip header line
+                if line.strip():
+                    model_name = line.split()[0]  # First column is model name
+                    models.append(model_name)
+            return models if models else ["llama2"]
+        return ["llama2"]  # Default if command succeeds but no models found
+    except Exception as e:
+        print(f"Error getting Ollama models: {e}")
+        return ["llama2"]  # Default fallback
+
+def check_ollama_status():
+    """
+    Check if Ollama service is running and responsive
+    Returns:
+        bool: True if Ollama is running and responsive
+    """
+    try:
+        response = requests.get('http://localhost:11434/api/version')
+        return response.status_code == 200
+    except:
+        return False
+
 try:
     import tkinter as tk
     from tkinter import ttk, messagebox
@@ -165,7 +200,7 @@ def download_file(url, dest_path, progress_bar, force_update=False):
             print(f"Warning: Could not check remote file timestamp: {e}")
 
     try:
-        response = requests.get(url, stream=True)
+        response = requests.get(url, stream=False)
         response.raise_for_status()
         total_size = int(response.headers.get('content-length', 0))
         block_size = 1024  # 1 KB
@@ -1217,56 +1252,181 @@ def db_list_entries(session, limit=50):
 # ---------------------
 # Deck Builder Functions
 # ---------------------
+class DeckBuilderUtils:
+    @staticmethod
+    def validate_deck(deck_list, session):
+        """Validate the deck against the database and Magic rules."""
+        # Placeholder for validation logic
+        pass
+
+    @staticmethod
+    def save_deck_template(deck_info, filename):
+        """Save the deck as a reusable template."""
+        # Placeholder for saving logic
+        pass
+
+    @staticmethod
+    def load_deck_template(filename):
+        """Load a deck template."""
+        # Placeholder for loading logic
+        pass
+
+def get_cards_by_criteria(session, criteria):
+    """
+    Query cards from database based on various criteria
+    Args:
+        session: SQLAlchemy session
+        criteria: dict with search criteria (type, text, name patterns)
+    Returns:
+        list: List of matching cards with their details
+    """
+    query = session.query(Card)
+    
+    if 'type' in criteria:
+        query = query.filter(Card.type.ilike(f"%{criteria['type']}%"))
+    if 'text' in criteria:
+        query = query.filter(Card.text.ilike(f"%{criteria['text']}%"))
+    if 'name' in criteria:
+        query = query.filter(Card.name.ilike(f"%{criteria['name']}%"))
+        
+    return [{
+        'name': card.name,
+        'type': card.type,
+        'text': card.text,
+        'rarity': card.rarity,
+        'set': card.set_code
+    } for card in query.all()]
+
+def generate_deck_with_constraints(session, prompt, selected_cards, model="dorian2b/vera:latest"):
+    """Generate a deck using Ollama with user-selected cards and constraints"""
+    
+    # Parse theme keywords from prompt
+    keywords = prompt.lower().split()
+    
+    # Get relevant cards from database based on theme
+    theme_cards = []
+    for keyword in keywords:
+        # Search for cards matching the keyword in name, type, or text
+        matches = get_cards_by_criteria(session, {
+            'text': keyword
+        })
+        theme_cards.extend(matches)
+    
+    # Remove duplicates and limit to a reasonable number
+    theme_cards = list({card['name']: card for card in theme_cards}.values())[:20]
+    
+    enhanced_prompt = f"""
+    Create a Magic: The Gathering deck based on this theme: {prompt}
+    
+    Here are some relevant cards from the database that match your theme:
+    {json.dumps(theme_cards, indent=2)}
+    
+    Requirements:
+    - 60 cards total for main deck
+    - Follow standard Magic format rules
+    - Include card quantities
+    - Use cards from the provided list when relevant
+    - Include the selected cards: {', '.join(selected_cards)}
+    - Group by card type (Creatures, Spells, Lands)
+    - Explain key synergies and strategy
+    
+    Format the decklist clearly with card quantities like:
+    Creatures:
+    4x [Card Name]
+    3x [Card Name]
+    etc.
+    """
+    return generate_deck_from_prompt(session, enhanced_prompt, model)
+
 def generate_deck_from_prompt(session, prompt, model="llama2"):
     """
     Use Ollama to generate a deck based on a theme/prompt
     Args:
         session: SQLAlchemy session
-        prompt: str - Description of desired deck
+        prompt: str - Theme and constraints for the deck
         model: str - Ollama model to use
     Returns:
         dict: Deck information and card list
     """
     import requests
+    from requests.exceptions import RequestException
+
+    print(f"\nUsing AI model: {model}")
+    print("Generating deck suggestion...")
 
     # Enhance the prompt with specific deck building instructions
     enhanced_prompt = f"""
     Create a Magic: The Gathering deck based on this theme: {prompt}
-    
     Requirements:
     - 60 cards total for main deck
     - Follow standard Magic format rules
     - Include card quantities
     - Group by card type (Creatures, Spells, Lands)
     - Explain key synergies and strategy
+    
+    Format the decklist clearly with card quantities like:
+    Creatures:
+    4x Lightning Bolt
+    3x Mountain
+    etc.
     """
 
-    # Call Ollama API
-    response = requests.post('http://localhost:11434/api/generate', 
-        json={
-            "model": model,
-            "prompt": enhanced_prompt,
-            "stream": False
-        }
-    )
-    
-    if response.status_code != 200:
-        raise Exception("Failed to generate deck with Ollama")
+    try:
+        # First check if Ollama is running
+        print("Checking Ollama service...", end=' ')
+        test_response = requests.get('http://localhost:11434/api/tags', timeout=2)
+        if test_response.status_code != 200:
+            raise Exception("Ollama service is not running")
+        print("✓ Connected")
 
-    # Parse Ollama's response
-    deck_suggestion = response.json()['response']
-    
-    # Extract card names and quantities
-    deck_list = parse_deck_suggestion(deck_suggestion)
-    
-    # Verify cards exist in database
-    verified_deck = verify_cards(session, deck_list)
-    
-    return {
-        'theme': prompt,
-        'strategy': deck_suggestion,
-        'deck_list': verified_deck
-    }
+        print("Generating deck suggestion...", end=' ')
+        # Call Ollama API
+        response = requests.post('http://localhost:11434/api/generate', 
+            json={
+                "model": model,
+                "prompt": enhanced_prompt,
+                "stream": True
+            },
+            stream=True,  # Enable streaming
+            timeout=60
+        )
+        
+        if response.status_code != 200:
+            raise Exception(f"Ollama API returned status code {response.status_code}")
+
+        # Handle streaming response
+        deck_suggestion = ""
+        for line in response.iter_lines():
+            if line:
+                try:
+                    json_response = json.loads(line)
+                    if 'response' in json_response:
+                        deck_suggestion += json_response['response']
+                except json.JSONDecodeError:
+                    continue
+
+        print("✓ Done")
+        
+        print("Parsing deck suggestion...", end=' ')
+        # Extract card names and quantities
+        deck_list = parse_deck_suggestion(deck_suggestion)
+        print("✓ Done")
+        
+        # Verify cards exist in database
+        verified_deck = verify_cards(session, deck_list)
+        
+        return {
+            'theme': prompt,
+            'strategy': deck_suggestion,
+            'deck_list': verified_deck
+        }
+        
+    except RequestException as e:
+        if "Connection refused" in str(e):
+            raise Exception("Cannot connect to Ollama. Please ensure Ollama is running (http://localhost:11434)")
+        raise Exception(f"Network error while connecting to Ollama: {str(e)}")
+    except Exception as e:
+        raise Exception(f"Failed to generate deck with Ollama: {str(e)}")
 
 def parse_deck_suggestion(suggestion):
     """Parse the AI's deck suggestion into a structured format"""
@@ -1278,33 +1438,39 @@ def parse_deck_suggestion(suggestion):
         'lands': []
     }
     
-    # Regular expression to match card quantities and names
-    pattern = r'(\d+)x?\s+\[\[(.*?)\]\]'
-    
-    current_section = 'spells'  # default section
+    current_section = None
+    quantity_pattern = r'(\d+)x?\s+(.+?)(?=\(|$|\n)'
     
     for line in suggestion.split('\n'):
         line = line.strip()
         
         # Determine section
-        if 'creature' in line.lower():
+        lower_line = line.lower()
+        if 'creatures' in lower_line or 'creature' in lower_line:
             current_section = 'creatures'
             continue
-        elif 'land' in line.lower():
+        elif 'lands' in lower_line or 'land' in lower_line:
             current_section = 'lands'
             continue
-        elif any(x in line.lower() for x in ['instant', 'sorcery', 'enchantment', 'artifact']):
+        elif any(x in lower_line for x in ['spells', 'instant', 'sorcery', 'enchantment', 'artifact']):
             current_section = 'spells'
             continue
             
-        # Extract card information
-        matches = re.findall(pattern, line)
-        for match in matches:
-            quantity, card_name = int(match[0]), match[1]
-            deck_list[current_section].append({
-                'quantity': quantity,
-                'name': card_name
-            })
+        if current_section and line:
+            # Try to extract quantity and card name
+            matches = re.findall(quantity_pattern, line)
+            if matches:
+                for match in matches:
+                    try:
+                        quantity = int(match[0])
+                        card_name = match[1].strip()
+                        if card_name:  # Only add if we have a card name
+                            deck_list[current_section].append({
+                                'quantity': quantity,
+                                'name': card_name
+                            })
+                    except ValueError:
+                        continue
     
     return deck_list
 
@@ -1314,42 +1480,156 @@ def verify_cards(session, deck_list):
         'creatures': [],
         'spells': [],
         'lands': [],
-        'missing': []
+        'missing': [],
+        'substitutions': []
     }
     
+    def find_alternatives(card_name):
+        """Find alternative cards in database"""
+        # Remove any text in parentheses or after dashes
+        clean_name = re.sub(r'\s*[-\(].*', '', card_name).strip()
+        
+        # Try exact match first
+        card = session.query(Card).filter(func.lower(Card.name) == func.lower(clean_name)).first()
+        if card:
+            return [card]
+            
+        # If no exact match, try fuzzy search
+        alternatives = session.query(Card).filter(
+            Card.name.ilike(f"%{clean_name}%")
+        ).order_by(Card.name).limit(5).all()
+        
+        # If still no matches, try searching by type for similar cards
+        if not alternatives and "zombie" in clean_name.lower():
+            alternatives = session.query(Card).filter(
+                Card.type.ilike("%Zombie%")
+            ).order_by(Card.name).limit(5).all()
+            
+        return alternatives
+
+    # Process each card without GUI
     for category in ['creatures', 'spells', 'lands']:
         for card in deck_list[category]:
-            db_card = session.query(Card).filter(Card.name == card['name']).first()
+            card_name = card['name']
+            quantity = card['quantity']
+            
+            # Try to find the card or alternatives
+            db_card = session.query(Card).filter(Card.name == card_name).first()
+            
             if db_card:
+                # Card found exactly
                 verified_deck[category].append({
-                    'quantity': card['quantity'],
-                    'name': card['name'],
+                    'quantity': quantity,
+                    'name': db_card.name,
                     'type': db_card.type,
                     'rarity': db_card.rarity,
-                    'set': db_card.set_code
+                    'set': db_card.set_code,
+                    'text': db_card.text
                 })
             else:
-                verified_deck['missing'].append(card['name'])
+                # Try to find alternatives
+                alternatives = find_alternatives(card_name)
+                if alternatives:
+                    # Use the first alternative
+                    alt_card = alternatives[0]
+                    verified_deck[category].append({
+                        'quantity': quantity,
+                        'name': alt_card.name,
+                        'type': alt_card.type,
+                        'rarity': alt_card.rarity,
+                        'set': alt_card.set_code,
+                        'text': alt_card.text
+                    })
+                    verified_deck['substitutions'].append({
+                        'original': card_name,
+                        'replacement': alt_card.name,
+                        'alternatives': [{
+                            'name': alt.name,
+                            'type': alt.type,
+                            'rarity': alt.rarity,
+                            'set': alt.set_code,
+                            'text': alt.text
+                        } for alt in alternatives]
+                    })
+                else:
+                    # No alternatives found
+                    verified_deck['missing'].append(card_name)
+    
+    # Print verification summary
+    print("\nVerification Summary:")
+    print(f"  Found: {sum(len(verified_deck[cat]) for cat in ['creatures', 'spells', 'lands'])} cards")
+    print(f"  Missing: {len(verified_deck['missing'])} cards")
+    print(f"  Substitutions: {len(verified_deck['substitutions'])} cards")
+    
+    if verified_deck['substitutions']:
+        print("\nSubstitutions made:")
+        for sub in verified_deck['substitutions']:
+            print(f"  {sub['original']} → {sub['replacement']}")
+    
+    print("-" * 50)
     
     return verified_deck
 
-def display_deck(deck_info):
+def display_deck(deck_info, session=None):
     """Display the generated deck in a formatted way"""
     print("\n=== Generated Deck ===")
     print(f"Theme: {deck_info['theme']}")
     print("\nStrategy:")
     print(deck_info['strategy'])
     
-    print("\nDeck List:")
+    print("\nVerified Deck List:")
+    total_cards = 0
+    
     for category in ['creatures', 'spells', 'lands']:
-        print(f"\n{category.title()}:")
-        for card in deck_info['deck_list'][category]:
-            print(f"{card['quantity']}x {card['name']} ({card['set']} - {card['rarity']})")
+        if deck_info['deck_list'][category]:
+            print(f"\n{category.title()}:")
+            category_total = 0
+            for card in deck_info['deck_list'][category]:
+                quantity = card['quantity']
+                category_total += quantity
+                print(f"{quantity}x {card['name']} ({card['set']} - {card['rarity']})")
+                print(f"    Type: {card['type']}")
+                if card.get('text'):
+                    print(f"    Text: {card['text']}")
+            print(f"Total {category}: {category_total}")
+            total_cards += category_total
+    
+    print(f"\nTotal cards in deck: {total_cards}")
     
     if deck_info['deck_list']['missing']:
         print("\nWarning: Missing cards:")
         for card in deck_info['deck_list']['missing']:
             print(f"- {card}")
+    
+    if deck_info['deck_list']['substitutions']:
+        print("\nSuggested Substitutions:")
+        for sub in deck_info['deck_list']['substitutions']:
+            print(f"\nFor {sub['original']}, consider:")
+            for alt in sub['alternatives']:
+                print(f"- {alt['name']} ({alt['set']} - {alt['rarity']})")
+                print(f"  Type: {alt['type']}")
+                if alt.get('text'):
+                    print(f"  Text: {alt['text']}")
+
+    # Ask if user wants to view cards
+    if session:
+        view_cards = input("\nWould you like to view these cards in the card viewer? (y/n): ")
+        if view_cards.lower() == 'y':
+            # Extract all card names from the deck
+            card_names = []
+            for category in ['creatures', 'spells', 'lands']:
+                for card in deck_info['deck_list'][category]:
+                    card_names.append(card['name'])
+            
+            # Open popup viewer with the first card name as initial search
+            # The user can then easily search for other cards in the deck
+            initial_search = card_names[0] if card_names else ""
+            print("\nDeck cards to view:")
+            for name in card_names:
+                print(f"- {name}")
+            print("\nOpening card viewer with first card. You can search for others from the list above.")
+            
+            popup_card_viewer(session, initial_search)
 
 def save_deck(deck_info, filename):
     """Save deck to a file"""
@@ -1508,19 +1788,49 @@ def show_deck_builder_popup(session):
     ttk.Label(input_frame, text="Deck Theme:", font=('Arial', 12)).pack(anchor=tk.W)
     prompt_text = tk.Text(input_frame, height=4, width=50, font=('Arial', 11))
     prompt_text.pack(fill=tk.X, pady=5)
-    
-    # Model selection
+
+    def check_ollama_connection():
+        """Check Ollama connection and update status"""
+        if check_ollama_status():
+            ollama_status_label.config(text="Ollama Status: Connected", foreground="green")
+            generate_button.config(state=tk.NORMAL)
+            model_combo.config(state="readonly")
+            save_button.config(state=tk.NORMAL)
+        else:
+            ollama_status_label.config(text="Ollama Status: Not Connected", foreground="red")
+            generate_button.config(state=tk.DISABLED)
+            model_combo.config(state=tk.DISABLED)
+            save_button.config(state=tk.DISABLED)
+        builder_window.after(5000, check_ollama_connection)  # Check every 5 seconds
+
     model_frame = ttk.Frame(input_frame)
     model_frame.pack(fill=tk.X, pady=5)
     ttk.Label(model_frame, text="Model:", font=('Arial', 12)).pack(side=tk.LEFT)
+    
+    # Get available models
+    available_models = get_ollama_models()
     model_var = tk.StringVar(value="llama2")
     model_combo = ttk.Combobox(model_frame, 
         textvariable=model_var,
-        values=["llama2", "codellama", "mistral"],
+        values=available_models,
         state="readonly",
         width=20
     )
     model_combo.pack(side=tk.LEFT, padx=5)
+    
+    # Add Ollama status indicator
+    ollama_status_label = ttk.Label(model_frame, text="Checking Ollama...", font=('Arial', 10))
+    ollama_status_label.pack(side=tk.LEFT, padx=10)
+    
+    # Add refresh models button
+    def refresh_models():
+        available_models = get_ollama_models()
+        model_combo['values'] = available_models
+        if model_var.get() not in available_models:
+            model_var.set(available_models[0])
+    
+    refresh_button = ttk.Button(model_frame, text="↻", width=3, command=refresh_models)
+    refresh_button.pack(side=tk.LEFT)
     
     # Output area
     output_text = tk.Text(output_frame, height=20, width=60, font=('Arial', 11))
@@ -1555,58 +1865,82 @@ def show_deck_builder_popup(session):
         if not prompt:
             messagebox.showerror("Error", "Please enter a deck theme")
             return
+
+        if not check_ollama_status():
+            messagebox.showerror("Error", "Ollama is not connected. Please start Ollama and try again.")
+            return
+
+        # Now we can access the Listbox through builder_window
+        selected_cards = [builder_window.selected_cards_list.get(i) 
+                         for i in range(builder_window.selected_cards_list.size())]
+
         
-        # Disable inputs during generation
-        prompt_text.configure(state=tk.DISABLED)
-        model_combo.configure(state=tk.DISABLED)
-        generate_button.configure(state=tk.DISABLED)
-        output_text.delete("1.0", tk.END)
-        save_button.configure(state=tk.DISABLED)
-        
-        def run_generation():
-            try:
-                progress_var.set("Generating deck...")
-                deck_info = generate_deck_from_prompt(session, prompt, model_var.get())
-                
-                # Store deck info for saving
-                builder_window.deck_info = deck_info
-                
-                # Display results
-                update_output(f"=== Generated Deck ===\nTheme: {deck_info['theme']}\n")
-                update_output("\nStrategy:")
-                update_output(deck_info['strategy'])
-                
-                update_output("\nDeck List:")
-                for category in ['creatures', 'spells', 'lands']:
-                    update_output(f"\n{category.title()}:")
-                    for card in deck_info['deck_list'][category]:
-                        update_output(
-                            f"{card['quantity']}x {card['name']} "
-                            f"({card['set']} - {card['rarity']})"
-                        )
-                
-                if deck_info['deck_list']['missing']:
-                    update_output("\nWarning: Missing cards:")
-                    for card in deck_info['deck_list']['missing']:
-                        update_output(f"- {card}")
-                
-                # Enable save button
-                save_button.configure(state=tk.NORMAL)
-                progress_var.set("Deck generation complete")
-                
-            except Exception as e:
-                update_output(f"\nError generating deck: {e}")
-                progress_var.set("Generation failed")
-            
-            finally:
-                # Re-enable inputs
-                prompt_text.configure(state=tk.NORMAL)
-                model_combo.configure(state="readonly")
-                generate_button.configure(state=tk.NORMAL)
-        
-        # Run generation in separate thread
-        threading.Thread(target=run_generation, daemon=True).start()
+        try:
+            progress_var.set("Generating deck...")
+            deck_info = generate_deck_with_constraints(session, prompt, selected_cards, model_var.get())
+
+            # Update the deck preview
+            update_deck_preview(deck_info)
+
+            # Store deck info for saving
+            builder_window.deck_info = deck_info
+
+            progress_var.set("Deck generation complete")
+        except Exception as e:
+            messagebox.showerror("Error", f"Error generating deck: {e}")
+            progress_var.set("Generation failed")
+            save_button.config(state=tk.DISABLED)
+            output_text.delete("1.0", tk.END)
     
+    def add_card_selection_panel():
+        """Add a panel for selecting cards."""
+        card_selection_frame = ttk.Frame(builder_window, padding="10")
+        card_selection_frame.pack(fill=tk.BOTH, expand=True)
+
+        ttk.Label(card_selection_frame, text="Select Cards:", font=('Arial', 12)).pack(anchor=tk.W)
+
+        def on_card_selected(card_name):
+            """Callback when a card is selected."""
+            builder_window.selected_cards_list.insert(tk.END, card_name)
+
+        show_card_grid(session, card_selection_frame, on_select_callback=on_card_selected)
+
+        # Store the Listbox as an attribute of builder_window
+        builder_window.selected_cards_list = tk.Listbox(card_selection_frame, height=10)
+        builder_window.selected_cards_list.pack(fill=tk.BOTH, expand=True, pady=5)
+
+        def remove_selected_card():
+            """Remove the selected card from the list."""
+            builder_window.selected_cards_list.delete(tk.ANCHOR)
+
+        remove_button = ttk.Button(card_selection_frame, text="Remove Selected Card", command=remove_selected_card)
+        remove_button.pack(pady=5)
+
+    def add_deck_preview():
+        """Add a real-time preview of the deck."""
+        deck_preview_frame = ttk.Frame(builder_window, padding="10")
+        deck_preview_frame.pack(fill=tk.BOTH, expand=True)
+
+        ttk.Label(deck_preview_frame, text="Deck Preview:", font=('Arial', 12)).pack(anchor=tk.W)
+
+        deck_preview_text = tk.Text(deck_preview_frame, height=15, state=tk.DISABLED)
+        deck_preview_text.pack(fill=tk.BOTH, expand=True, pady=5)
+
+        def update_deck_preview(deck_info):
+            """Update the deck preview with the generated deck."""
+            deck_preview_text.configure(state=tk.NORMAL)
+            deck_preview_text.delete("1.0", tk.END)
+            for category, cards in deck_info['deck_list'].items():
+                deck_preview_text.insert(tk.END, f"\n{category.title()}:\n")
+                for card in cards:
+                    deck_preview_text.insert(tk.END, f"{card['quantity']}x {card['name']}\n")
+            deck_preview_text.configure(state=tk.DISABLED)
+
+        return update_deck_preview
+
+    add_card_selection_panel()
+    update_deck_preview = add_deck_preview()
+
     # Generate button
     generate_button = ttk.Button(
         input_frame,
@@ -1751,11 +2085,135 @@ def add_deckbuilder_subcommand(subparsers):
         help="Launch graphical deck builder interface")
     deck_parser.add_argument('--prompt', type=str,
         help="Description of the desired deck theme")
-    deck_parser.add_argument('--model', type=str, default="llama2",
-        help="Ollama model to use (default: llama2)")
+    deck_parser.add_argument('--model', type=str, default="dorian2b/vera:latest",  # Changed default model
+        help="Ollama model to use (default: dorian2b/vera:latest)")
     deck_parser.add_argument('--save', type=str,
         help="Save deck to specified file")
     return deck_parser
+
+def check_dependencies():
+    """Check if all required dependencies are installed"""
+    missing_deps = []
+    
+    try:
+        import sqlalchemy
+    except ImportError:
+        missing_deps.append("sqlalchemy")
+    
+    try:
+        import requests
+    except ImportError:
+        missing_deps.append("requests")
+    
+    try:
+        from tqdm import tqdm
+    except ImportError:
+        missing_deps.append("tqdm")
+    
+    if missing_deps:
+        print("\n❌ Missing required dependencies:")
+        print("Please install them using pip:\n")
+        print(f"pip install {' '.join(missing_deps)}")
+        print("\nAfter installing, run the tutorial again.")
+        return False
+    return True
+
+def show_tutorial():
+    """Display an interactive tutorial for administrators"""
+    # Get the current Python executable path
+    python_exe = sys.executable
+    
+    # Check dependencies first
+    if not check_dependencies():
+        return
+
+    tutorial_text = """
+╔════════════════════════════════════════════════════════════════╗
+║                 MTG Database Manager Tutorial                   ║
+╚════════════════════════════════════════════════════════════════╝
+
+Welcome! This tutorial will guide you through the main features of the MTG Database Manager.
+
+1️⃣ Initial Setup
+----------------
+First, you'll need to set up your database:
+
+    python mtgdb_manager.py manage-links fetch
+    python mtgdb_manager.py download --urls https://mtgjson.com/api/v5/AllPrintings.json.zip
+
+2️⃣ Database Management
+---------------------
+Check your database status:
+
+    python mtgdb_manager.py db-manager stats
+    python mtgdb_manager.py db-manager list
+
+3️⃣ Card Viewing Options
+---------------------
+There are two ways to view cards:
+
+CLI Viewer:
+    python mtgdb_manager.py view --search "Lightning Bolt"
+
+Graphical Viewer:
+    python mtgdb_manager.py popup --name "Black Lotus"
+
+4️⃣ Deck Building
+--------------
+Use the AI-powered deck builder:
+
+GUI Mode:
+    python mtgdb_manager.py build-deck --gui
+
+CLI Mode:
+    python mtgdb_manager.py build-deck --prompt "Aggressive dragon tribal deck"
+
+5️⃣ Common Administrative Tasks
+---------------------------
+• Reinitialize database:
+    python mtgdb_manager.py db-manager init
+
+• Update MTGJSON links:
+    python mtgdb_manager.py manage-links fetch
+
+• Select local files:
+    python mtgdb_manager.py select-download --new-db custom_db.db
+
+Would you like to:
+1. Open the documentation in your browser
+2. Run database status check
+3. Launch the card viewer
+4. Exit tutorial
+
+Enter your choice (1-4): """
+
+    while True:
+        print(tutorial_text)
+        choice = input().strip()
+        
+        try:
+            if choice == '1':
+                webbrowser.open('https://github.com/unaveragetech/Horde/blob/main/MTG_DATABASE_MANAGER_COMMANDS.md')
+            elif choice == '2':
+                subprocess.run([python_exe, 'mtgdb_manager.py', 'db-manager', 'stats'])
+            elif choice == '3':
+                subprocess.run([python_exe, 'mtgdb_manager.py', 'popup'])
+            elif choice == '4':
+                print("\nTutorial completed! You can always access command help using --help")
+                print("Example: python mtgdb_manager.py <command> --help")
+                break
+            else:
+                print("\nInvalid choice. Please enter a number between 1 and 4.")
+        except Exception as e:
+            print(f"\nError: {str(e)}")
+            print("Please ensure you're running the script from within the virtual environment:")
+            print("1. Activate the virtual environment:")
+            print("   Windows: .venv\\Scripts\\activate")
+            print("   Unix: source .venv/bin/activate")
+            print("2. Run the script again:")
+            print("   python mtgdb_manager.py intro")
+        
+        input("\nPress Enter to continue...")
 
 def main():
     parser = argparse.ArgumentParser(
@@ -1764,43 +2222,89 @@ def main():
     parser.add_argument('--db', type=str, default="mtg_cards.db", help="Path to the SQLite DB file")
     subparsers = parser.add_subparsers(dest="command", help="Subcommands", required=True)
     
-    # Add subcommands
+    # Add intro/tutorial subcommand
+    intro_parser = subparsers.add_parser("intro", 
+        help="Interactive tutorial for administrators",
+        description="Displays an interactive tutorial covering main features and common administrative tasks")
+
+    # Select-download subcommand
     select_download_parser = subparsers.add_parser("select-download", 
-        help="Select and process a local MTGJSON ZIP file")
+        help="Select and process a local MTGJSON ZIP file",
+        description="Example: python mtgdb_manager.py select-download --new-db my_cards.db")
     select_download_parser.add_argument('--new-db', type=str, 
         help="Create new database at specified path")
 
-    # Download subcommand.
-    download_parser = subparsers.add_parser("download", help="Download and process MTGJSON files")
+    # Download subcommand
+    download_parser = subparsers.add_parser("download", 
+        help="Download and process MTGJSON files",
+        description="""
+Examples:
+  python mtgdb_manager.py download --urls https://mtgjson.com/api/v5/AllPrintings.json.zip
+  python mtgdb_manager.py download --list-file downloads.txt --category CustomSet
+""")
     download_group = download_parser.add_mutually_exclusive_group(required=True)
     download_group.add_argument('--urls', nargs='+', help="One or more file URLs to download")
     download_group.add_argument('--list-file', type=str, help="Path to a file with category,url entries (one per line)")
     download_parser.add_argument('--category', type=str, default="AllPrintings", help="Category of the file(s)")
 
-    # Link management subcommand.
-    link_parser = subparsers.add_parser("manage-links", help="Manage MTGJSON download links")
+    # View subcommand
+    view_parser = subparsers.add_parser("view", 
+        help="CLI card viewer",
+        description="Example: python mtgdb_manager.py view --search \"Lightning Bolt\"")
+    view_parser.add_argument('--search', type=str, required=True, help="Search term for card names")
+
+    # Popup subcommand
+    popup_parser = subparsers.add_parser("popup", 
+        help="Popup card viewer with searchable grid",
+        description="Example: python mtgdb_manager.py popup --name \"Black Lotus\"")
+    popup_parser.add_argument('--name', type=str, required=False, help="Initial search term (optional)")
+
+    # DB Manager subcommand
+    db_parser = subparsers.add_parser("db-manager", 
+        help="Database management utilities",
+        description="""
+Examples:
+  python mtgdb_manager.py db-manager stats
+  python mtgdb_manager.py db-manager list
+  python mtgdb_manager.py db-manager init
+""")
+    db_parser.add_argument("action", choices=["stats", "list", "init"], 
+        help="Action: 'stats' to view DB stats, 'list' to list card entries, 'init' to reinitialize the DB")
+
+    # Build-deck subcommand
+    deck_parser = subparsers.add_parser("build-deck", 
+        help="Generate a deck based on a theme using AI",
+        description="""
+Examples:
+  python mtgdb_manager.py build-deck --gui
+  python mtgdb_manager.py build-deck --prompt "Aggressive dragon tribal deck" --model llama2
+  python mtgdb_manager.py build-deck --prompt "Blue control deck" --save my_deck.json
+""")
+    deck_parser.add_argument('--gui', action='store_true', help="Launch graphical deck builder interface")
+    deck_parser.add_argument('--prompt', type=str, help="Description of the desired deck theme")
+    deck_parser.add_argument('--model', type=str, default="dorian2b/vera:latest", 
+        help="Ollama model to use (default: dorian2b/vera:latest)")
+    deck_parser.add_argument('--save', type=str, help="Save deck to specified file")
+
+    # Manage-links subcommand
+    link_parser = subparsers.add_parser("manage-links", 
+        help="Manage MTGJSON download links",
+        description="""
+Examples:
+  python mtgdb_manager.py manage-links fetch
+  python mtgdb_manager.py manage-links list
+""")
     link_subparsers = link_parser.add_subparsers(dest="link_action", required=True)
     link_fetch = link_subparsers.add_parser("fetch", help="Fetch and store MTGJSON download links")
     link_fetch.add_argument("--db", type=str, default="mtg_links.db", help="Links database path")
     link_list = link_subparsers.add_parser("list", help="List stored MTGJSON download links")
     link_list.add_argument("--db", type=str, default="mtg_links.db", help="Links database path")
 
-    # CLI Card viewer subcommand.
-    view_parser = subparsers.add_parser("view", help="CLI card viewer")
-    view_parser.add_argument('--search', type=str, required=True, help="Search term for card names")
-
-    # Popup Card viewer subcommand.
-    popup_parser = subparsers.add_parser("popup", help="Popup card viewer with searchable grid")
-    popup_parser.add_argument('--name', type=str, required=False, help="Initial search term (optional)")
-
-    # DB Manager subcommand.
-    db_parser = subparsers.add_parser("db-manager", help="Database management utilities")
-    db_parser.add_argument("action", choices=["stats", "list", "init"], help="Action: 'stats' to view DB stats, 'list' to list card entries, 'init' to reinitialize the DB")
-
-    # Add deck builder subcommand
-    deck_parser = add_deckbuilder_subcommand(subparsers)
-
     args = parser.parse_args()
+
+    if args.command == "intro":
+        show_tutorial()
+        return
 
     if args.command == "select-download":
         download_selected(args.new_db)
@@ -1873,7 +2377,7 @@ def main():
         else:
             try:
                 deck_info = generate_deck_from_prompt(session, args.prompt, args.model)
-                display_deck(deck_info)
+                display_deck(deck_info, session)  # Pass the session to enable card viewing
                 if args.save:
                     save_deck(deck_info, args.save)
             except Exception as e:
