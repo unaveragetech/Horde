@@ -1,96 +1,181 @@
 
-```markdown
-# MTGJSON Database Manager, Downloader, and Card Viewer
+<div align="center">
 
-This Python script provides tools for managing, downloading, and viewing Magic: The Gathering JSON data from [MTGJSON](https://mtgjson.com/). It offers multiple subcommands for different functionalities, such as downloading data, viewing card details in the command line or a popup window, and managing the SQLite database.
+# 🎴 MTG Database Manager
 
-## Features
+[![Python](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](https://www.python.org/downloads/)
+[![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0-green.svg)](https://www.sqlalchemy.org/)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-- **Download MTGJSON Files**: Download one or more files from MTGJSON, extract them, and update the SQLite database.
-- **CLI Card Viewer**: Search and list card details directly from the command line.
-- **Popup Card Viewer**: Display detailed card information using a Tkinter popup window.
-- **Database Management**: Utilities for viewing database stats, listing entries, and reinitializing the database.
-- **Manage MTGJSON Links**: Fetch and store MTGJSON download links dynamically.
+*A powerful toolkit for managing, downloading, and viewing Magic: The Gathering card data with advanced features and AI-powered deck building.*
 
-## Installation
+[Features](#✨-features) • [Installation](#🚀-installation) • [Usage](#💫-usage) • [Documentation](#📖-documentation) • [Contributing](#🤝-contributing)
 
-1. **Clone the repository**:
-    ```bash
-    git clone https://github.com/unaveragetech/Horde.git
-    cd Horde
-    ```
+![MTG Database Manager Demo](assets/demo.gif)
 
-2. **Install the required dependencies**:
-    ```bash
-    pip install -r requirements.txt
-    ```
+</div>
 
-## Usage
+## ✨ Features
 
-### Download MTGJSON Files
-Download and process MTGJSON files:
+### 🔄 Data Management
+- **Multi-threaded Downloads**: Efficiently download MTGJSON files with concurrent processing
+- **Smart Caching**: Intelligent caching system for improved performance
+- **Version Control**: Track and manage database versions
+- **Automatic Updates**: Stay current with the latest MTGJSON releases
+
+### 🔍 Card Viewing
+- **Dual Interface System**:
+  - 📝 CLI viewer for quick searches and scripting
+  - 🖼️ GUI popup viewer with rich card details
+- **Advanced Search**:
+  - Filter by name, type, rarity, set, and more
+  - Regular expression support
+  - Color combination filtering
+
+### 🎮 Interactive Features
+- **Real-time Card Preview**:
+  - Dynamic mana symbol rendering
+  - Particle effects for mythic rares
+  - Smooth animations and transitions
+- **Keyboard Shortcuts**:
+  - Quick navigation
+  - Custom keybindings
+  - Clipboard integration
+
+### 🤖 AI-Powered Tools
+- **Deck Building Assistant**:
+  - Theme-based deck generation
+  - Card synergy analysis
+  - Format-specific recommendations
+- **Collection Management**:
+  - Inventory tracking
+  - Price monitoring
+  - Trade suggestions
+
+## 🚀 Installation
+
+### Prerequisites
+- Python 3.9 or higher
+- pip package manager
+- Git (for cloning)
+
+### Quick Start
 ```bash
-# Download a single file
-python mtgdb_manager.py download --urls https://mtgjson.com/api/v5/AllPrintings.json.zip --category AllPrintings
+# Clone the repository
+git clone https://github.com/unaveragetech/Horde.git
+cd Horde
 
-# Download multiple files via a list file (each line: <category>,<url>)
-python mtgdb_manager.py download --list-file urls.txt
-```
+# Create and activate virtual environment
+python -m venv .venv
+source .venv/bin/activate  # Unix
+# or
+.venv\Scripts\activate     # Windows
 
-### CLI Card Viewer
-View cards by searching for a name keyword:
-```bash
-python mtgdb_manager.py view --search "Goblin"
-```
+# Install dependencies
+pip install -r requirements.txt
 
-### Popup Card Viewer
-Popup viewer for a specific card (if multiple, cycle through them):
-```bash
-python mtgdb_manager.py popup --name "Lightning Bolt"
-```
-
-### Database Manager
-Utilities for managing the SQLite database:
-```bash
-# View database stats
-python mtgdb_manager.py db-manager stats
-
-# List card entries
-python mtgdb_manager.py db-manager list
-
-# Reinitialize the database
+# Initialize database
+python mtgdb_manager.py manage-links fetch
 python mtgdb_manager.py db-manager init
 ```
 
-### Manage MTGJSON Links
-Fetch and store MTGJSON download links:
+## 💫 Usage
+
+### 📥 Download Manager
 ```bash
-# Fetch and store links
-python mtgdb_manager.py manage-links fetch
+# Download specific set
+python mtgdb_manager.py download --urls https://mtgjson.com/api/v5/DOM.json.zip --category Dominaria
 
-# List stored links
-python mtgdb_manager.py manage-links list
+# Batch download from list
+python mtgdb_manager.py download --list-file sets.txt
 ```
 
-## Contributing
+### 🔎 Card Search
+```bash
+# CLI search
+python mtgdb_manager.py view --search "Dragon" --field type
 
-Contributions are welcome! Please open an issue or submit a pull request if you have any improvements or bug fixes.
-
-## License
-
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.
-
-## Acknowledgements
-
-- [MTGJSON](https://mtgjson.com/) for providing comprehensive Magic: The Gathering data.
-- [SQLAlchemy](https://www.sqlalchemy.org/) for ORM support.
-- [Tkinter](https://docs.python.org/3/library/tkinter.html) for GUI support.
-- [tqdm](https://github.com/tqdm/tqdm) for progress bars.
-- [BeautifulSoup](https://www.crummy.com/software/BeautifulSoup/) for HTML parsing.
-- [requests](https://docs.python-requests.org/en/master/) for HTTP requests.
-
-## Contact
-
-For any questions or feedback, please reach out via the repository's issue tracker or contact the maintainer directly.
+# Launch GUI viewer
+python mtgdb_manager.py popup --name "Black Lotus"
 ```
 
+### 🎲 Deck Building
+```bash
+# GUI deck builder
+python mtgdb_manager.py build-deck --gui
+
+# AI-powered deck generation
+python mtgdb_manager.py build-deck --prompt "Modern Goblin tribal deck"
+```
+
+## 📖 Documentation
+
+### 📚 Command Reference
+| Command | Description | Example |
+|---------|-------------|---------|
+| `download` | Download MTGJSON files | `download --urls URL` |
+| `view` | CLI card viewer | `view --search "Bolt"` |
+| `popup` | GUI card viewer | `popup --name "Lotus"` |
+| `build-deck` | Deck builder | `build-deck --gui` |
+
+### 🎯 Advanced Usage
+- [Detailed Commands Guide](docs/COMMANDS.md)
+- [API Documentation](docs/API.md)
+- [Configuration Guide](docs/CONFIG.md)
+
+## 🛠️ Development
+
+### Project Structure
+```
+mtg-db-manager/
+├── src/
+│   ├── database/      # Database models and operations
+│   ├── downloaders/   # File download management
+│   ├── viewers/       # Card viewing interfaces
+│   └── utils/         # Helper functions
+├── tests/             # Test suite
+├── docs/              # Documentation
+└── assets/            # Images and resources
+```
+
+### Running Tests
+```bash
+pytest tests/
+```
+
+## 🤝 Contributing
+
+We welcome contributions! See our [Contributing Guide](CONTRIBUTING.md) for details.
+
+### Development Setup
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
+
+## 📜 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgements
+
+- [MTGJSON](https://mtgjson.com/) - Comprehensive MTG data
+- [SQLAlchemy](https://www.sqlalchemy.org/) - Database ORM
+- [Tkinter](https://docs.python.org/3/library/tkinter.html) - GUI framework
+- [tqdm](https://github.com/tqdm/tqdm) - Progress bars
+- [requests](https://docs.python-requests.org/) - HTTP client
+
+## 📬 Contact
+
+- **Issues**: [GitHub Issues](https://github.com/unaveragetech/Horde/issues)
+- **Email**: maintainer@example.com
+- **Twitter**: [@MTGDBManager](https://twitter.com/MTGDBManager)
+
+---
+
+<div align="center">
+
+Made with ❤️ by [UnavergeTech](https://github.com/unaveragetech)
+
+</div>
