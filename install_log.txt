@@ -1,0 +1,93 @@
+
+
+===== Installation started at 2025-03-25 09:57:21.669265 =====
+===== Successful Installation =====
+Requirement already satisfied: SQLAlchemy>=2.0.0 in c:\users\b0052\horde\.venv\lib\site-packages (from -r temp_requirements.txt (line 2)) (2.0.39)
+Requirement already satisfied: requests>=2.28.0 in c:\users\b0052\horde\.venv\lib\site-packages (from -r temp_requirements.txt (line 5)) (2.32.3)
+Requirement already satisfied: tqdm>=4.65.0 in c:\users\b0052\horde\.venv\lib\site-packages (from -r temp_requirements.txt (line 8)) (4.67.1)
+Requirement already satisfied: beautifulsoup4>=4.12.0 in c:\users\b0052\horde\.venv\lib\site-packages (from -r temp_requirements.txt (line 11)) (4.13.3)
+Requirement already satisfied: opencv-python>=4.5.0 in c:\users\b0052\horde\.venv\lib\site-packages (from -r temp_requirements.txt (line 14)) (4.11.0.86)
+Requirement already satisfied: pytesseract>=0.3.8 in c:\users\b0052\horde\.venv\lib\site-packages (from -r temp_requirements.txt (line 15)) (0.3.13)
+Requirement already satisfied: greenlet!=0.4.17 in c:\users\b0052\horde\.venv\lib\site-packages (from SQLAlchemy>=2.0.0->-r temp_requirements.txt (line 2)) (3.1.1)
+Requirement already satisfied: typing-extensions>=4.6.0 in c:\users\b0052\horde\.venv\lib\site-packages (from SQLAlchemy>=2.0.0->-r temp_requirements.txt (line 2)) (4.12.2)
+Requirement already satisfied: charset-normalizer<4,>=2 in c:\users\b0052\horde\.venv\lib\site-packages (from requests>=2.28.0->-r temp_requirements.txt (line 5)) (3.4.1)
+Requirement already satisfied: idna<4,>=2.5 in c:\users\b0052\horde\.venv\lib\site-packages (from requests>=2.28.0->-r temp_requirements.txt (line 5)) (3.10)
+Requirement already satisfied: urllib3<3,>=1.21.1 in c:\users\b0052\horde\.venv\lib\site-packages (from requests>=2.28.0->-r temp_requirements.txt (line 5)) (2.3.0)
+Requirement already satisfied: certifi>=2017.4.17 in c:\users\b0052\horde\.venv\lib\site-packages (from requests>=2.28.0->-r temp_requirements.txt (line 5)) (2025.1.31)
+Requirement already satisfied: colorama in c:\users\b0052\horde\.venv\lib\site-packages (from tqdm>=4.65.0->-r temp_requirements.txt (line 8)) (0.4.6)
+Requirement already satisfied: soupsieve>1.2 in c:\users\b0052\horde\.venv\lib\site-packages (from beautifulsoup4>=4.12.0->-r temp_requirements.txt (line 11)) (2.6)
+Requirement already satisfied: numpy>=1.21.2 in c:\users\b0052\horde\.venv\lib\site-packages (from opencv-python>=4.5.0->-r temp_requirements.txt (line 14)) (2.2.4)
+Requirement already satisfied: packaging>=21.3 in c:\users\b0052\horde\.venv\lib\site-packages (from pytesseract>=0.3.8->-r temp_requirements.txt (line 15)) (24.2)
+Requirement already satisfied: Pillow>=8.0.0 in c:\users\b0052\horde\.venv\lib\site-packages (from pytesseract>=0.3.8->-r temp_requirements.txt (line 15)) (11.1.0)
+===== Installation ended at 2025-03-25 09:57:23.552893 =====
+
+
+===== Installation started at 2025-03-25 09:58:01.574924 =====
+===== Successful Installation =====
+Requirement already satisfied: SQLAlchemy>=2.0.0 in c:\users\b0052\horde\.venv\lib\site-packages (from -r temp_requirements.txt (line 2)) (2.0.39)
+Requirement already satisfied: requests>=2.28.0 in c:\users\b0052\horde\.venv\lib\site-packages (from -r temp_requirements.txt (line 5)) (2.32.3)
+Requirement already satisfied: tqdm>=4.65.0 in c:\users\b0052\horde\.venv\lib\site-packages (from -r temp_requirements.txt (line 8)) (4.67.1)
+Requirement already satisfied: beautifulsoup4>=4.12.0 in c:\users\b0052\horde\.venv\lib\site-packages (from -r temp_requirements.txt (line 11)) (4.13.3)
+Requirement already satisfied: opencv-python>=4.5.0 in c:\users\b0052\horde\.venv\lib\site-packages (from -r temp_requirements.txt (line 14)) (4.11.0.86)
+Requirement already satisfied: pytesseract>=0.3.8 in c:\users\b0052\horde\.venv\lib\site-packages (from -r temp_requirements.txt (line 15)) (0.3.13)
+Requirement already satisfied: greenlet!=0.4.17 in c:\users\b0052\horde\.venv\lib\site-packages (from SQLAlchemy>=2.0.0->-r temp_requirements.txt (line 2)) (3.1.1)
+Requirement already satisfied: typing-extensions>=4.6.0 in c:\users\b0052\horde\.venv\lib\site-packages (from SQLAlchemy>=2.0.0->-r temp_requirements.txt (line 2)) (4.12.2)
+Requirement already satisfied: charset-normalizer<4,>=2 in c:\users\b0052\horde\.venv\lib\site-packages (from requests>=2.28.0->-r temp_requirements.txt (line 5)) (3.4.1)
+Requirement already satisfied: idna<4,>=2.5 in c:\users\b0052\horde\.venv\lib\site-packages (from requests>=2.28.0->-r temp_requirements.txt (line 5)) (3.10)
+Requirement already satisfied: urllib3<3,>=1.21.1 in c:\users\b0052\horde\.venv\lib\site-packages (from requests>=2.28.0->-r temp_requirements.txt (line 5)) (2.3.0)
+Requirement already satisfied: certifi>=2017.4.17 in c:\users\b0052\horde\.venv\lib\site-packages (from requests>=2.28.0->-r temp_requirements.txt (line 5)) (2025.1.31)
+Requirement already satisfied: colorama in c:\users\b0052\horde\.venv\lib\site-packages (from tqdm>=4.65.0->-r temp_requirements.txt (line 8)) (0.4.6)
+Requirement already satisfied: soupsieve>1.2 in c:\users\b0052\horde\.venv\lib\site-packages (from beautifulsoup4>=4.12.0->-r temp_requirements.txt (line 11)) (2.6)
+Requirement already satisfied: numpy>=1.21.2 in c:\users\b0052\horde\.venv\lib\site-packages (from opencv-python>=4.5.0->-r temp_requirements.txt (line 14)) (2.2.4)
+Requirement already satisfied: packaging>=21.3 in c:\users\b0052\horde\.venv\lib\site-packages (from pytesseract>=0.3.8->-r temp_requirements.txt (line 15)) (24.2)
+Requirement already satisfied: Pillow>=8.0.0 in c:\users\b0052\horde\.venv\lib\site-packages (from pytesseract>=0.3.8->-r temp_requirements.txt (line 15)) (11.1.0)
+===== Installation ended at 2025-03-25 09:58:03.433244 =====
+
+
+===== Installation started at 2025-03-25 09:59:25.285762 =====
+===== Successful Installation =====
+Requirement already satisfied: SQLAlchemy>=2.0.0 in c:\users\b0052\horde\.venv\lib\site-packages (from -r temp_requirements.txt (line 2)) (2.0.39)
+Requirement already satisfied: requests>=2.28.0 in c:\users\b0052\horde\.venv\lib\site-packages (from -r temp_requirements.txt (line 5)) (2.32.3)
+Requirement already satisfied: tqdm>=4.65.0 in c:\users\b0052\horde\.venv\lib\site-packages (from -r temp_requirements.txt (line 8)) (4.67.1)
+Requirement already satisfied: beautifulsoup4>=4.12.0 in c:\users\b0052\horde\.venv\lib\site-packages (from -r temp_requirements.txt (line 11)) (4.13.3)
+Requirement already satisfied: opencv-python>=4.5.0 in c:\users\b0052\horde\.venv\lib\site-packages (from -r temp_requirements.txt (line 14)) (4.11.0.86)
+Requirement already satisfied: pytesseract>=0.3.8 in c:\users\b0052\horde\.venv\lib\site-packages (from -r temp_requirements.txt (line 15)) (0.3.13)
+Collecting bs4 (from -r temp_requirements.txt (line 17))
+  Downloading bs4-0.0.2-py2.py3-none-any.whl.metadata (411 bytes)
+===== Installation Errors =====
+  WARNING: Retrying (Retry(total=4, connect=None, read=None, redirect=None, status=None)) after connection broken by 'ProtocolError('Connection aborted.', ConnectionResetError(10054, 'An existing connection was forcibly closed by the remote host', None, 10054, None))': /packages/51/bb/bf7aab772a159614954d84aa832c129624ba6c32faa559dfb200a534e50b/bs4-0.0.2-py2.py3-none-any.whl.metadata
+ERROR: Could not find a version that satisfies the requirement random (from versions: none)
+ERROR: No matching distribution found for random
+===== Installation ended at 2025-03-25 09:59:27.745328 =====
+
+
+===== Installation started at 2025-03-25 10:02:59.153436 =====
+===== Successful Installation =====
+Requirement already satisfied: SQLAlchemy>=2.0.0 in c:\users\b0052\horde\.venv\lib\site-packages (from -r temp_requirements.txt (line 2)) (2.0.39)
+Requirement already satisfied: requests>=2.28.0 in c:\users\b0052\horde\.venv\lib\site-packages (from -r temp_requirements.txt (line 5)) (2.32.3)
+Requirement already satisfied: tqdm>=4.65.0 in c:\users\b0052\horde\.venv\lib\site-packages (from -r temp_requirements.txt (line 8)) (4.67.1)
+Requirement already satisfied: beautifulsoup4>=4.12.0 in c:\users\b0052\horde\.venv\lib\site-packages (from -r temp_requirements.txt (line 11)) (4.13.3)
+Requirement already satisfied: opencv-python>=4.5.0 in c:\users\b0052\horde\.venv\lib\site-packages (from -r temp_requirements.txt (line 14)) (4.11.0.86)
+Requirement already satisfied: pytesseract>=0.3.8 in c:\users\b0052\horde\.venv\lib\site-packages (from -r temp_requirements.txt (line 15)) (0.3.13)
+Collecting bs4 (from -r temp_requirements.txt (line 17))
+  Using cached bs4-0.0.2-py2.py3-none-any.whl.metadata (411 bytes)
+===== Installation Errors =====
+ERROR: Could not find a version that satisfies the requirement random (from versions: none)
+ERROR: No matching distribution found for random
+===== Installation ended at 2025-03-25 10:03:01.262420 =====
+
+
+===== Installation started at 2025-03-25 10:03:36.451233 =====
+===== Successful Installation =====
+Requirement already satisfied: SQLAlchemy>=2.0.0 in c:\users\b0052\horde\.venv\lib\site-packages (from -r temp_requirements.txt (line 2)) (2.0.39)
+Requirement already satisfied: requests>=2.28.0 in c:\users\b0052\horde\.venv\lib\site-packages (from -r temp_requirements.txt (line 5)) (2.32.3)
+Requirement already satisfied: tqdm>=4.65.0 in c:\users\b0052\horde\.venv\lib\site-packages (from -r temp_requirements.txt (line 8)) (4.67.1)
+Requirement already satisfied: beautifulsoup4>=4.12.0 in c:\users\b0052\horde\.venv\lib\site-packages (from -r temp_requirements.txt (line 11)) (4.13.3)
+Requirement already satisfied: opencv-python>=4.5.0 in c:\users\b0052\horde\.venv\lib\site-packages (from -r temp_requirements.txt (line 14)) (4.11.0.86)
+Requirement already satisfied: pytesseract>=0.3.8 in c:\users\b0052\horde\.venv\lib\site-packages (from -r temp_requirements.txt (line 15)) (0.3.13)
+Collecting bs4 (from -r temp_requirements.txt (line 17))
+  Using cached bs4-0.0.2-py2.py3-none-any.whl.metadata (411 bytes)
+===== Installation Errors =====
+ERROR: Could not find a version that satisfies the requirement random (from versions: none)
+ERROR: No matching distribution found for random
+===== Installation ended at 2025-03-25 10:03:38.511589 =====
